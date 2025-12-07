@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
-import {
-  Mail,
-  Search,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Loader2,
-  Copy,
-  Download,
-} from 'lucide-react';
+import {Mail,Search,CheckCircle,XCircle,AlertCircle,Loader2,Copy,Download} from 'lucide-react';
 import './Dashboard.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function EmailFinderChecker() {
   const [activeTab, setActiveTab] = useState('finder');
-  const [finderInput, setFinderInput] = useState({
-    firstName: '',
-    lastName: '',
-    domain: '',
-  });
+  const [finderInput, setFinderInput] = useState({firstName: '',lastName: '',domain: '',});
   const [finderResults, setFinderResults] = useState([]);
   const [checkerResults, setCheckerResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +80,6 @@ export default function EmailFinderChecker() {
       return;
     }
 
-    // Validate email formats
     const invalidEmails = emails.filter(email => !validateEmailFormat(email));
     if (invalidEmails.length > 0) {
       setError(`Invalid email format(s): ${invalidEmails.join(', ')}`);
@@ -294,14 +280,14 @@ export default function EmailFinderChecker() {
         ) : (
           <>
             <div className="checker-block">
-              <label>Email Addresses (one per line)</label>
-              <textarea
-                rows={6}
+              <label>Email Address</label>
+              <input
+                type="text"
                 value={bulkEmails}
                 onChange={(e) => setBulkEmails(e.target.value)}
-                placeholder={`john@company.com`}
+                placeholder="john@company.com"
+                className="checker-input"
               />
-              <p className="form-tip">We will validate all emails in bulk.</p>
             </div>
 
             <button
