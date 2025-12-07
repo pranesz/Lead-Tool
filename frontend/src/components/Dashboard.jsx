@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import './Dashboard.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function EmailFinderChecker() {
   const [activeTab, setActiveTab] = useState('finder');
   const [finderInput, setFinderInput] = useState({
@@ -25,45 +27,12 @@ export default function EmailFinderChecker() {
   const [bulkEmails, setBulkEmails] = useState('');
   const [error, setError] = useState('');
 
-  const generateEmailPatterns = (firstName, lastName, domain) => {
-    const f = firstName.toLowerCase().trim();
-    const l = lastName.toLowerCase().trim();
-    const d = domain.toLowerCase().trim();
-    const fInitial = f.charAt(0);
-    const lInitial = l.charAt(0);
-
-    return [
-      `${f}.${l}@${d}`,
-      `${f}${l}@${d}`,
-      `${fInitial}${l}@${d}`,
-      `${f}${lInitial}@${d}`,
-      `${f}_${l}@${d}`,
-      `${f}-${l}@${d}`,
-      `${l}.${f}@${d}`,
-      `${fInitial}.${l}@${d}`,
-    ];
-  };
-
   const validateEmailFormat = (email) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   };
 
-  const checkEmailValidity = (email) => {
-    if (!validateEmailFormat(email)) {
-      return { status: 'invalid', confidence: 0 };
-    }
-    const random = Math.random();
-    if (random > 0.7) {
-      return { status: 'valid', confidence: 85 + Math.floor(Math.random() * 15) };
-    } else if (random > 0.4) {
-      return { status: 'risky', confidence: 50 + Math.floor(Math.random() * 30) };
-    } else {
-      return { status: 'invalid', confidence: 20 + Math.floor(Math.random() * 30) };
-    }
-  };
-
-  const handleFindEmails = () => {
+  const handleFindEmails = async () => {
     const { firstName, lastName, domain } = finderInput;
     setError('');
 
@@ -73,18 +42,47 @@ export default function EmailFinderChecker() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const patterns = generateEmailPatterns(firstName, lastName, domain);
-      const results = patterns.map((email) => ({
-        email,
-        ...checkEmailValidity(email),
-      }));
-      setFinderResults(results);
+    setFinderResults([]);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/find-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          domain: domain.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.reason === 'smtp_unavailable') {
+          setError('SMTP server unavailable. Port 25 may be blocked. Please check your network settings.');
+        } else {
+          setError(data.message || 'Failed to find emails. Please try again.');
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.success && data.results) {
+        setFinderResults(data.results);
+      } else {
+        setError('No results found or invalid response.');
+      }
+    } catch (err) {
+      console.error('Error finding emails:', err);
+      setError('Failed to connect to server. Make sure the backend is running on port 5000.');
+    } finally {
       setLoading(false);
-    }, 700);
+    }
   };
 
-  const handleCheckEmails = () => {
+  const handleCheckEmails = async () => {
     setError('');
     const emails = bulkEmails
       .split('\n')
@@ -96,15 +94,50 @@ export default function EmailFinderChecker() {
       return;
     }
 
+    // Validate email formats
+    const invalidEmails = emails.filter(email => !validateEmailFormat(email));
+    if (invalidEmails.length > 0) {
+      setError(`Invalid email format(s): ${invalidEmails.join(', ')}`);
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      const results = emails.map((email) => ({
-        email,
-        ...checkEmailValidity(email),
-      }));
-      setCheckerResults(results);
+    setCheckerResults([]);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/check-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emails: emails,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.reason === 'smtp_unavailable') {
+          setError('SMTP server unavailable. Port 25 may be blocked. Please check your network settings.');
+        } else {
+          setError(data.message || 'Failed to check emails. Please try again.');
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.success && data.results) {
+        setCheckerResults(data.results);
+      } else {
+        setError('No results found or invalid response.');
+      }
+    } catch (err) {
+      console.error('Error checking emails:', err);
+      setError('Failed to connect to server. Make sure the backend is running on port 5000.');
+    } finally {
       setLoading(false);
-    }, 700);
+    }
   };
 
   const copyToClipboard = (text) => {
@@ -166,7 +199,7 @@ export default function EmailFinderChecker() {
           </div>
         </header>
 
-        <p className="email-demo-note">Demo mode · Simulated results</p>
+        <p className="email-demo-note">Real-time email verification using MX records and SMTP protocol</p>
 
         <div className="email-tabs">
           <button
@@ -201,7 +234,6 @@ export default function EmailFinderChecker() {
             : 'Paste emails (one per line) to verify multiple addresses at once.'}
         </p>
 
-        {/* error */}
         {error && (
           <div className="email-error">
             <AlertCircle size={14} />
@@ -209,10 +241,8 @@ export default function EmailFinderChecker() {
           </div>
         )}
 
-        {/* Finder vs Checker */}
         {activeTab === 'finder' ? (
           <>
-            {/* HORIZONTAL FINDER FORM */}
             <div className="finder-inline">
               <div className="fg">
                 <label>First Name</label>
@@ -281,7 +311,7 @@ export default function EmailFinderChecker() {
                 rows={6}
                 value={bulkEmails}
                 onChange={(e) => setBulkEmails(e.target.value)}
-                placeholder={`john@company.com\njane@brand.com`}
+                placeholder={`john@company.com`}
               />
               <p className="form-tip">We will validate all emails in bulk.</p>
             </div>
