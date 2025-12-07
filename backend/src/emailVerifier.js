@@ -75,7 +75,7 @@ export function smtpVerifyEmail(email, mxHost, timeoutMs = 8000) {
     const socket = net.createConnection(25, mxHost);
 
     const timer = setTimeout(() => {
-      // Timeout na SMTP environment suspicious → treat as unavailable
+      
       failUnavailable("SMTP timeout");
     }, timeoutMs);
 
@@ -117,13 +117,13 @@ export function smtpVerifyEmail(email, mxHost, timeoutMs = 8000) {
         socket.write(`RCPT TO:<${email}>\r\n`);
         step = 3;
       } else if (step === 3) {
-        // RCPT response
+        
         if (code >= 200 && code < 300) {
-          finish(true);       // valid mailbox
+          finish(true);
         } else if (code === 550 || code === 551 || code === 553) {
-          finish(false);      // invalid mailbox
+          finish(false);
         } else {
-          finish(null);       // unknown / greylist
+          finish(null);
         }
       }
     });
@@ -160,10 +160,9 @@ export async function verifySingleEmail(email) {
   }
 }
 
-// ---- Verify multiple emails ----
 export async function verifyMultipleEmails(emails) {
   const results = [];
-  const domainMap = new Map(); // Cache MX lookups per domain
+  const domainMap = new Map();
 
   for (const email of emails) {
     const domain = email.split("@")[1];
@@ -173,7 +172,6 @@ export async function verifyMultipleEmails(emails) {
     }
 
     try {
-      // Get or cache MX host for this domain
       let mxHost = domainMap.get(domain);
       if (!mxHost) {
         mxHost = await resolveMx(domain);
@@ -200,7 +198,6 @@ export async function verifyMultipleEmails(emails) {
   return results;
 }
 
-// ---- Main: MX + candidates + SMTP ----
 export async function verifyEmailsForPerson(firstName, lastName, domain) {
   const candidates = generateCandidates(firstName, lastName, domain.trim());
 
@@ -212,7 +209,6 @@ export async function verifyEmailsForPerson(firstName, lastName, domain) {
     const mxHost = await resolveMx(domain.trim());
     const results = [];
 
-    // Check all candidates and return all results (not just valid ones)
     for (const email of candidates) {
       let result;
       try {
@@ -239,7 +235,6 @@ export async function verifyEmailsForPerson(firstName, lastName, domain) {
     if (err.code === "SMTP_UNAVAILABLE") {
       throw err;
     }
-    // If MX lookup fails, return all as risky
     return candidates.map(email => ({ email, status: "risky", confidence: 30 }));
   }
 }
