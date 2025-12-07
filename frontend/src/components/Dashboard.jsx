@@ -298,10 +298,6 @@ export default function EmailFinderChecker() {
                 )}
               </button>
             </div>
-
-            <p className="form-tip">
-              Use the main domain only, without https:// or www.
-            </p>
           </>
         ) : (
           <>
